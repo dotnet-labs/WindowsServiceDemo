@@ -1,8 +1,5 @@
-using System;
-using System.IO;
+using System.Security.Principal;
 using Demo.Services;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Enrichers;
 using Serilog.Events;
@@ -31,6 +28,12 @@ namespace Demo
                 Log.Information("====================================================================");
                 Log.Information($"Application Starts. Version: {System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version}");
                 Log.Information($"Application Directory: {baseDir}");
+                if (OperatingSystem.IsWindows())
+                {
+                    var userName = WindowsIdentity.GetCurrent().Name;
+                    Log.Information("The runner account is [{runnerAccountName}]", userName);
+                }
+
                 CreateHostBuilder(args).Build().Run();
             }
             catch (Exception e)

@@ -1,11 +1,4 @@
-using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using Demo.Services;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Demo
@@ -13,7 +6,7 @@ namespace Demo
     public class Worker : BackgroundService
     {
         private readonly ILogger<Worker> _logger;
-        private FileSystemWatcher _folderWatcher;
+        private FileSystemWatcher? _folderWatcher;
         private readonly string _inputFolder;
         private readonly IServiceProvider _services;
 
@@ -34,11 +27,11 @@ namespace Demo
             _logger.LogInformation("Service Starting");
             if (!Directory.Exists(_inputFolder))
             {
-                _logger.LogWarning($"Please make sure the InputFolder [{_inputFolder}] exists, then restart the service.");
+                _logger.LogWarning("Please make sure the InputFolder [{inputFolder}] exists, then restart the service.", _inputFolder);
                 return Task.CompletedTask;
             }
 
-            _logger.LogInformation($"Binding Events from Input Folder: {_inputFolder}");
+            _logger.LogInformation("Binding Events from Input Folder: {inputFolder}", _inputFolder);
             _folderWatcher = new FileSystemWatcher(_inputFolder, "*.TXT")
             {
                 NotifyFilter = NotifyFilters.CreationTime | NotifyFilters.LastWrite | NotifyFilters.FileName |
@@ -54,7 +47,7 @@ namespace Demo
         {
             if (e.ChangeType == WatcherChangeTypes.Created)
             {
-                _logger.LogInformation($"InBound Change Event Triggered by [{e.FullPath}]");
+                _logger.LogInformation("InBound Change Event Triggered by [{e.FullPath}]", e.FullPath);
 
                 // do some work
                 using (var scope = _services.CreateScope())
@@ -70,14 +63,17 @@ namespace Demo
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("Stopping Service");
-            _folderWatcher.EnableRaisingEvents = false;
+            if (_folderWatcher != null)
+            {
+                _folderWatcher.EnableRaisingEvents = false;
+            }
             await base.StopAsync(cancellationToken);
         }
 
         public override void Dispose()
         {
             _logger.LogInformation("Disposing Service");
-            _folderWatcher.Dispose();
+            _folderWatcher?.Dispose();
             base.Dispose();
         }
     }

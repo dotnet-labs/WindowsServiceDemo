@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-
-namespace Demo.Services
+﻿namespace Demo.Services
 {
     public interface IServiceA
     {
