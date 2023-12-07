@@ -1,7 +1,6 @@
-﻿namespace Demo
+﻿namespace Demo;
+
+public class AppSettings
 {
-    public class AppSettings
-    {
-        public string InputFolder { get; set; } = string.Empty;
-    }
+    public string InputFolder { get; set; } = string.Empty;
 }

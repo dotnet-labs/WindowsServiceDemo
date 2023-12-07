@@ -1,80 +1,72 @@
 using Demo.Services;
 using Microsoft.Extensions.Options;
 
-namespace Demo
+namespace Demo;
+
+public class Worker(ILogger<Worker> logger, IOptions<AppSettings> settings, IServiceProvider services)
+    : BackgroundService
 {
-    public class Worker : BackgroundService
+    private FileSystemWatcher? _folderWatcher;
+    private readonly string _inputFolder = settings.Value.InputFolder;
+
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        private readonly ILogger<Worker> _logger;
-        private FileSystemWatcher? _folderWatcher;
-        private readonly string _inputFolder;
-        private readonly IServiceProvider _services;
+        return Task.CompletedTask;
+    }
 
-        public Worker(ILogger<Worker> logger, IOptions<AppSettings> settings, IServiceProvider services)
+    public override Task StartAsync(CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Service Starting");
+        if (!Directory.Exists(_inputFolder))
         {
-            _logger = logger;
-            _services = services;
-            _inputFolder = settings.Value.InputFolder;
+            logger.LogWarning("Please make sure the InputFolder [{inputFolder}] exists, then restart the service.", _inputFolder);
+            return Task.CompletedTask;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        logger.LogInformation("Binding Events from Input Folder: {inputFolder}", _inputFolder);
+        _folderWatcher = new FileSystemWatcher(_inputFolder, "*.TXT")
         {
-            await Task.CompletedTask;
-        }
+            NotifyFilter = NotifyFilters.CreationTime | NotifyFilters.LastWrite | NotifyFilters.FileName |
+                           NotifyFilters.DirectoryName
+        };
+        _folderWatcher.Created += Input_OnChanged;
+        _folderWatcher.EnableRaisingEvents = true;
 
-        public override Task StartAsync(CancellationToken cancellationToken)
+        return base.StartAsync(cancellationToken);
+    }
+
+    protected void Input_OnChanged(object source, FileSystemEventArgs e)
+    {
+        if (e.ChangeType == WatcherChangeTypes.Created)
         {
-            _logger.LogInformation("Service Starting");
-            if (!Directory.Exists(_inputFolder))
+            logger.LogInformation("InBound Change Event Triggered by [{e.FullPath}]", e.FullPath);
+
+            // do some work
+            using (var scope = services.CreateScope())
             {
-                _logger.LogWarning("Please make sure the InputFolder [{inputFolder}] exists, then restart the service.", _inputFolder);
-                return Task.CompletedTask;
+                var serviceA = scope.ServiceProvider.GetRequiredService<IServiceA>();
+                serviceA.Run();
             }
 
-            _logger.LogInformation("Binding Events from Input Folder: {inputFolder}", _inputFolder);
-            _folderWatcher = new FileSystemWatcher(_inputFolder, "*.TXT")
-            {
-                NotifyFilter = NotifyFilters.CreationTime | NotifyFilters.LastWrite | NotifyFilters.FileName |
-                                  NotifyFilters.DirectoryName
-            };
-            _folderWatcher.Created += Input_OnChanged;
-            _folderWatcher.EnableRaisingEvents = true;
-
-            return base.StartAsync(cancellationToken);
+            logger.LogInformation("Done with Inbound Change Event");
         }
+    }
 
-        protected void Input_OnChanged(object source, FileSystemEventArgs e)
+    public override Task StopAsync(CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Stopping Service");
+        if (_folderWatcher != null)
         {
-            if (e.ChangeType == WatcherChangeTypes.Created)
-            {
-                _logger.LogInformation("InBound Change Event Triggered by [{e.FullPath}]", e.FullPath);
-
-                // do some work
-                using (var scope = _services.CreateScope())
-                {
-                    var serviceA = scope.ServiceProvider.GetRequiredService<IServiceA>();
-                    serviceA.Run();
-                }
-
-                _logger.LogInformation("Done with Inbound Change Event");
-            }
+            _folderWatcher.EnableRaisingEvents = false;
         }
+        return base.StopAsync(cancellationToken);
+    }
 
-        public override async Task StopAsync(CancellationToken cancellationToken)
-        {
-            _logger.LogInformation("Stopping Service");
-            if (_folderWatcher != null)
-            {
-                _folderWatcher.EnableRaisingEvents = false;
-            }
-            await base.StopAsync(cancellationToken);
-        }
-
-        public override void Dispose()
-        {
-            _logger.LogInformation("Disposing Service");
-            _folderWatcher?.Dispose();
-            base.Dispose();
-        }
+    public override void Dispose()
+    {
+        logger.LogInformation("Disposing Service");
+        _folderWatcher?.Dispose();
+        base.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

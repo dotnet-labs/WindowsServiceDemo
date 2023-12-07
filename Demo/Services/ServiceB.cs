@@ -1,22 +1,14 @@
-﻿namespace Demo.Services
+﻿namespace Demo.Services;
+
+public interface IServiceB
 {
-    public interface IServiceB
+    void Run();
+}
+
+public class ServiceB(ILogger<ServiceB> logger) : IServiceB
+{
+    public void Run()
     {
-        void Run();
-    }
-
-    public class ServiceB : IServiceB
-    {
-        private readonly ILogger<ServiceB> _logger;
-
-        public ServiceB(ILogger<ServiceB> logger)
-        {
-            _logger = logger;
-        }
-
-        public void Run()
-        {
-            _logger.LogInformation("In Service B");
-        }
+        logger.LogInformation("In Service B");
     }
 }
